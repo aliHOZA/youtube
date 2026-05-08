@@ -1,83 +1,97 @@
+# .github/workflows/fetch_videos.yml
 name: Fetch Latest YouTube Videos
 
 on:
-  workflow_dispatch:  # manual trigger only
+  workflow_dispatch:
+
+# Set the environment variable to force Node.js 24 for all actions. This removes the deprecation warning and prepares your workflow for the future.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
+      # The 'actions/checkout@v4' step is still used to create a workspace for the files we generate.
       - uses: actions/checkout@v4
-      
-      - name: Fetch RSS feeds for 31 channels
+
+      - name: Fetch RSS feeds and generate report
         run: |
-          cat > channels.txt << 'EOF'
-          Ahmad Zeidabadi,UCUycnksCaFu9-e2oRb6T9yw
-          Arantik,UCqiPfSQWNJenrTBAVCZVNow
-          BBC Persian,UCHZk9MrT3DGWmVqdsj5y0EA
-          Car Wizard,UC2TTf3i4wwsRW8ex1zRXH8A
-          Chizomiz,UCHy8QSSJ1gXu-zbDlwwsE-w
-          Chris Titus Tech,UCg6gPGh8HU2U01vaFCAsvmQ
-          Doug DeMuro,UCsqjHFMB_JYTaEnf_vmTNqg
-          driving 4 answers,UCwosUnVH6AINmxtqkNJ3Fbg
-          DW Documentary,UCW39zufHfsuGgpLviKh297Q
-          DW فارسی,UC8fNUW0nHyGxjLetxvJxn9g
-          Engineering Explained,UClqhvGmHcvWL9w3R48t9QXQ
-          ExplainingComputers,UCbiGcwDWZjz05njNPrJU7jA
-          Fuse Podcast with Arash Nalchegar,UCUPNsCvO1eZWhvdGJfT0wjA
-          Hagerty,UCLgEVx4mzk3T3mzgbKG54Eg
-          Hamed Tavakoli,UCO_emM0ykWiW0Q2Jtxei3NA
-          Human David,UCLJuIlvbrbJOaO6aT1dJIJA
-          Level1Linux,UCOWcZ6Wicl-1N34H0zZe38w
-          Michael Tunnell,UCmyGZ0689ODyReHw3rsKLtQ
-          Moj Vahedi,UCqngcLmyPqZwEfcjwMd_d-A
-          Nick Spinelli,UCvZc8_nKoSooYNpTC4dD22g
-          OnTen,UCEdjL1kbZ0K8nFu519vE5LQ
-          Paul McGowan, PS Audio,UC6mzA8J7n0ylf0RnDpj-vrg
-          Practical Engineering,UCMOqf8ab-42UUQIdVoKwjlQ
-          Real Engineering,UCR1IuLEqb6UEA_zQ81kwXfg
-          The Car Care Nut,UCEKt2bUDBoRUw3wpPpDOUaA
-          The Car Care Nut Reviews,UCUPPMkXFBPr-TAAE-CV9Jlg
-          Ton Does Linux and More!,UCUDdGb82Xsv4_LQprelLhqA
-          WELT Documentary,UCBAeFXaLV1ZqKqc-Uf3pKaA
-          ار.اف.ای / RFI فارسی,UCfN5syo6W8gR6FilalNqF-A
-          مجتبی واحدی,UCD_-CQZEcIgmwMA9msp0C2w
-          مجله خلقت,UCsMl-W1Ve2MwRhIWcSMjHiA
+          cat > fetch.py << 'EOF'
+          import urllib.request
+          import xml.etree.ElementTree as ET
+          from datetime import datetime
+
+          channels = [
+              ("Ahmad Zeidabadi", "UCUycnksCaFu9-e2oRb6T9yw"),
+              ("Arantik", "UCqiPfSQWNJenrTBAVCZVNow"),
+              ("BBC Persian", "UCHZk9MrT3DGWmVqdsj5y0EA"),
+              ("Car Wizard", "UC2TTf3i4wwsRW8ex1zRXH8A"),
+              ("Chizomiz", "UCHy8QSSJ1gXu-zbDlwwsE-w"),
+              ("Chris Titus Tech", "UCg6gPGh8HU2U01vaFCAsvmQ"),
+              ("Doug DeMuro", "UCsqjHFMB_JYTaEnf_vmTNqg"),
+              ("driving 4 answers", "UCwosUnVH6AINmxtqkNJ3Fbg"),
+              ("DW Documentary", "UCW39zufHfsuGgpLviKh297Q"),
+              ("DW فارسی", "UC8fNUW0nHyGxjLetxvJxn9g"),
+              ("Engineering Explained", "UClqhvGmHcvWL9w3R48t9QXQ"),
+              ("ExplainingComputers", "UCbiGcwDWZjz05njNPrJU7jA"),
+              ("Fuse Podcast with Arash Nalchegar", "UCUPNsCvO1eZWhvdGJfT0wjA"),
+              ("Hagerty", "UCLgEVx4mzk3T3mzgbKG54Eg"),
+              ("Hamed Tavakoli", "UCO_emM0ykWiW0Q2Jtxei3NA"),
+              ("Human David", "UCLJuIlvbrbJOaO6aT1dJIJA"),
+              ("Level1Linux", "UCOWcZ6Wicl-1N34H0zZe38w"),
+              ("Michael Tunnell", "UCmyGZ0689ODyReHw3rsKLtQ"),
+              ("Moj Vahedi", "UCqngcLmyPqZwEfcjwMd_d-A"),
+              ("Nick Spinelli", "UCvZc8_nKoSooYNpTC4dD22g"),
+              ("OnTen", "UCEdjL1kbZ0K8nFu519vE5LQ"),
+              ("Paul McGowan, PS Audio", "UC6mzA8J7n0ylf0RnDpj-vrg"),
+              ("Practical Engineering", "UCMOqf8ab-42UUQIdVoKwjlQ"),
+              ("Real Engineering", "UCR1IuLEqb6UEA_zQ81kwXfg"),
+              ("The Car Care Nut", "UCEKt2bUDBoRUw3wpPpDOUaA"),
+              ("The Car Care Nut Reviews", "UCUPPMkXFBPr-TAAE-CV9Jlg"),
+              ("Ton Does Linux and More!", "UCUDdGb82Xsv4_LQprelLhqA"),
+              ("WELT Documentary", "UCBAeFXaLV1ZqKqc-Uf3pKaA"),
+              ("ار.اف.ای / RFI فارسی", "UCfN5syo6W8gR6FilalNqF-A"),
+              ("مجتبی واحدی", "UCD_-CQZEcIgmwMA9msp0C2w"),
+              ("مجله خلقت", "UCsMl-W1Ve2MwRhIWcSMjHiA"),
+          ]
+
+          with open('latest_videos.md', 'w', encoding='utf-8') as f:
+              f.write("# Latest 2 Videos from Each Channel\n\n")
+              f.write(f"_Generated on {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC_\n\n")
+
+              for name, channel_id in channels:
+                  url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
+                  f.write(f"## {name}\n\n")
+                  f.write(f"**Channel ID:** `{channel_id}`\n\n")
+
+                  try:
+                      req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                      with urllib.request.urlopen(req, timeout=15) as response:
+                          xml_data = response.read()
+
+                      root = ET.fromstring(xml_data)
+                      ns = {'atom': 'http://www.w3.org/2005/Atom'}
+                      entries = root.findall('atom:entry', ns)
+
+                      if not entries:
+                          f.write("_No videos found or the channel has no recent uploads._\n\n")
+                      else:
+                          for idx, entry in enumerate(entries[:2], 1):
+                              title = entry.find('atom:title', ns).text if entry.find('atom:title', ns) is not None else "No Title"
+                              video_id = entry.find('atom:videoId', ns).text if entry.find('atom:videoId', ns) is not None else "No ID"
+                              video_url = f"https://youtube.com/watch?v={video_id}"
+                              f.write(f"**{idx}.** {title}\n\n")
+                              f.write(f"     - 📅 {entry.find('atom:published', ns).text}\n\n")
+                              f.write(f"     - 🔗 Watch: `{video_url}`\n\n")
+                              f.write(f"     - ⬇️ Download: `yt-dlp {video_url}`\n\n")
+                  except Exception as e:
+                      f.write(f"_Error fetching data: {str(e)}_\n\n")
+                  f.write("---\n\n")
           EOF
-          
-          echo "# Latest 2 Videos from Each Channel" > latest_videos.md
-          echo "" >> latest_videos.md
-          echo "_Generated on $(date -u +'%Y-%m-%d %H:%M:%S UTC')_" >> latest_videos.md
-          echo "" >> latest_videos.md
-          
-          while IFS=',' read -r name channel_id; do
-            echo "## $name" >> latest_videos.md
-            echo "" >> latest_videos.md
-            echo "**Channel ID:** \`$channel_id\`" >> latest_videos.md
-            echo "" >> latest_videos.md
-            
-            rss_url="https://www.youtube.com/feeds/videos.xml?channel_id=$channel_id"
-            
-            # Fetch RSS and extract first 2 videos
-            curl -s "$rss_url" | \
-              grep -E '(<title>|<videoId>)' | \
-              head -4 | \
-              while read -r line; do
-                if [[ $line =~ <title>(.*)</title> ]]; then
-                  title="${BASH_REMATCH[1]}"
-                elif [[ $line =~ <videoId>(.*)</videoId> ]]; then
-                  video_id="${BASH_REMATCH[1]}"
-                  echo "- **$title**" >> latest_videos.md
-                  echo "  - Watch: \`https://youtube.com/watch?v=$video_id\`" >> latest_videos.md
-                  echo "  - Download with: \`yt-dlp https://youtube.com/watch?v=$video_id\`" >> latest_videos.md
-                fi
-              done
-            
-            echo "" >> latest_videos.md
-            echo "---" >> latest_videos.md
-            echo "" >> latest_videos.md
-          done < channels.txt
-      
+
+          python3 fetch.py
+
       - name: Upload result as artifact
         uses: actions/upload-artifact@v4
         with:
