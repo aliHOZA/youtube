@@ -1,23 +1,15 @@
-# .github/workflows/fetch_videos.yml
 name: Fetch Latest YouTube Videos
 
 on:
   workflow_dispatch:
 
-# Set the environment variable to force Node.js 24 for all actions. This removes the deprecation warning and prepares your workflow for the future.
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
-      # The 'actions/checkout@v4' step is still used to create a workspace for the files we generate.
-      - uses: actions/checkout@v4
-
       - name: Fetch RSS feeds and generate report
         run: |
-          cat > fetch.py << 'EOF'
+          python3 << 'EOF'
           import urllib.request
           import xml.etree.ElementTree as ET
           from datetime import datetime
@@ -58,42 +50,40 @@ jobs:
 
           with open('latest_videos.md', 'w', encoding='utf-8') as f:
               f.write("# Latest 2 Videos from Each Channel\n\n")
-              f.write(f"_Generated on {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC_\n\n")
+              f.write(f"Generated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC\n\n")
 
-              for name, channel_id in channels:
-                  url = f"https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"
-                  f.write(f"## {name}\n\n")
-                  f.write(f"**Channel ID:** `{channel_id}`\n\n")
+              for name, cid in channels:
+                  url = f"https://www.youtube.com/feeds/videos.xml?channel_id={cid}"
+                  f.write(f"## {name}\n")
+                  f.write(f"Channel ID: `{cid}`\n\n")
 
                   try:
                       req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-                      with urllib.request.urlopen(req, timeout=15) as response:
-                          xml_data = response.read()
+                      with urllib.request.urlopen(req, timeout=10) as resp:
+                          data = resp.read()
+                      root = ET.fromstring(data)
+                      ns = {'a': 'http://www.w3.org/2005/Atom'}
+                      entries = root.findall('a:entry', ns)
 
-                      root = ET.fromstring(xml_data)
-                      ns = {'atom': 'http://www.w3.org/2005/Atom'}
-                      entries = root.findall('atom:entry', ns)
-
+                      for i, entry in enumerate(entries[:2], 1):
+                          title = entry.find('a:title', ns).text
+                          vid = entry.find('a:videoId', ns).text
+                          pub = entry.find('a:published', ns).text
+                          f.write(f"**{i}. {title}**\n")
+                          f.write(f"   - Published: {pub}\n")
+                          f.write(f"   - Watch: https://youtube.com/watch?v={vid}\n")
+                          f.write(f"   - Download: `yt-dlp https://youtube.com/watch?v={vid}`\n\n")
                       if not entries:
-                          f.write("_No videos found or the channel has no recent uploads._\n\n")
-                      else:
-                          for idx, entry in enumerate(entries[:2], 1):
-                              title = entry.find('atom:title', ns).text if entry.find('atom:title', ns) is not None else "No Title"
-                              video_id = entry.find('atom:videoId', ns).text if entry.find('atom:videoId', ns) is not None else "No ID"
-                              video_url = f"https://youtube.com/watch?v={video_id}"
-                              f.write(f"**{idx}.** {title}\n\n")
-                              f.write(f"     - 📅 {entry.find('atom:published', ns).text}\n\n")
-                              f.write(f"     - 🔗 Watch: `{video_url}`\n\n")
-                              f.write(f"     - ⬇️ Download: `yt-dlp {video_url}`\n\n")
+                          f.write("_No recent videos found._\n\n")
                   except Exception as e:
-                      f.write(f"_Error fetching data: {str(e)}_\n\n")
+                      f.write(f"_Error: {str(e)}_\n\n")
                   f.write("---\n\n")
+
+          print("✅ Report generated: latest_videos.md")
           EOF
 
-          python3 fetch.py
-
-      - name: Upload result as artifact
+      - name: Upload result
         uses: actions/upload-artifact@v4
         with:
-          name: latest-videos-list
+          name: youtube-latest-videos
           path: latest_videos.md
